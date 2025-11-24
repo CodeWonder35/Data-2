@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets;
 public class Reader {
 
     private HashTable<Article> articleMap;      // Article ID → Article
-    private HashTable<WordInfo[]> indexMap;     // word → WordInfo list
+    HashTable<HashTable<Integer>> indexMap;
     private HashTable<Boolean> stopWords = new HashTable<>();
 
     private String csvPath = "src//CNN_Articels.csv";
@@ -15,9 +15,10 @@ public class Reader {
 
     private String DELIMITERS = "";
 
-    public Reader(HashTable<Article> articleMap, HashTable<WordInfo[]> indexMap) {
+    public Reader(HashTable<Article> articleMap, HashTable<HashTable<Integer>> indexMap) {
         this.articleMap = articleMap;
-        this.indexMap = new HashTable<>();
+        this.indexMap = indexMap;
+        //this.indexMap = new HashTable<>();
 
         loadStopWords();
         loadDelimiters();
@@ -167,6 +168,8 @@ public class Reader {
 
                 String[] words = combined.split("[\\P{L}]+");
 
+                // burası general motor sadece searchtxt deki kelimeleri aratmamız lazım
+                // ama bizden istenen general performans matrisinde searchtxt kelimelerinin süreleri yazacak
                 for (String w : words) {
                     String word = w.trim().toLowerCase();
                     if (word.isEmpty()) continue;
@@ -187,45 +190,22 @@ public class Reader {
 
     // -------------------------------------
     // Kelimeyi indexMap’e ekleme (WordInfo yapısı)
-    // -------------------------------------
     private void addWordToIndex(String word, String articleID) {
 
-        // DEBUG → kelime gerçekten bölünüyor mu?
-        //System.out.println("Adding word: " + word + " (Article: " + articleID + ")");
+        HashTable<Integer> inner = indexMap.get(word);
 
-        // 1) Bu kelime zaten indekslenmiş mi?
-        WordInfo[] list = indexMap.get(word);
-
-        // 2) Eğer hiç yoksa → yeni liste oluştur
-        if (list == null) {
-            WordInfo[] newList = new WordInfo[1];
-            newList[0] = new WordInfo(articleID);
-            indexMap.put(word, newList);
-            return;
+        if (inner == null) {
+            inner = new HashTable<>(251);
+            indexMap.put(word, inner);
         }
 
-        // 3) Liste varsa → aynı articleID var mı?
-        for (int i = 0; i < list.length; i++) {
-            if (list[i].getArticleID().equals(articleID)) {
-                list[i].increment();    // aynı article içinde tekrar geçti → count++
-                indexMap.put(word, list);
-                return;
-            }
+        Integer count = inner.get(articleID);
+
+        if (count == null) {
+            inner.put(articleID, 1);
+        } else {
+            inner.put(articleID, count + 1);
         }
-
-        // 4) articleID listede yoksa → listeyi genişlet
-        WordInfo[] newList = new WordInfo[list.length + 1];
-
-        // eski elemanları taşı
-        for (int i = 0; i < list.length; i++) {
-            newList[i] = list[i];
-        }
-
-        // sona yeni articleID’yi ekle
-        newList[list.length] = new WordInfo(articleID);
-
-        // güncel listeyi tabloya koy
-        indexMap.put(word, newList);
     }
 
 
@@ -233,73 +213,42 @@ public class Reader {
 
         word = word.toLowerCase().trim();
 
-        // 1) stopword kontrolü
         if (stopWords.get(word) != null) {
             System.out.println("Bu kelime stopword olduğu için aranamıyor.");
             return;
         }
 
-        // 2) indexMap'te kelime var mı?
-        WordInfo[] list = indexMap.get(word);
+        HashTable<Integer> inner = indexMap.get(word);
 
-        if (list == null) {
+        if (inner == null) {
             System.out.println("Bu kelime hiçbir makalede bulunmuyor.");
             return;
         }
 
-        // 3) relevance hesaplaması için Article + skor tablosu hazırlayalım
-        // MakaleID → skor
-        HashTable<Integer> relevanceTable = new HashTable<>();
+        String[] ids = inner.getAllKeys();
+        int[] scores = new int[ids.length];
 
-        for (WordInfo wi : list) {
-
-            Integer currentScore = relevanceTable.get(wi.getArticleID());
-
-            if (currentScore == null) {
-                // ilk kez ekleniyor
-                relevanceTable.put(wi.getArticleID(), wi.getCount());
-            } else {
-                // toplam üzerine ekliyoruz
-                relevanceTable.put(wi.getArticleID(), currentScore + wi.getCount());
-            }
+        for (int i = 0; i < ids.length; i++) {
+            scores[i] = inner.get(ids[i]);
         }
 
-        // 4) relevance değerlerini bir listeye koy – sonra en büyükleri bulacağız
-        // Kaç makalede geçtiğini bilmiyoruz → dynamic array
-        String[] articleIDs = new String[list.length];
-        int[] scores = new int[list.length];
-
-        for (int i = 0; i < list.length; i++) {
-            articleIDs[i] = list[i].getArticleID();
-            scores[i] = relevanceTable.get(list[i].getArticleID());
-        }
-
-        // 5) En yüksek 5 skoru bul
+        // Sort (descending)
         for (int i = 0; i < scores.length - 1; i++) {
             for (int j = i + 1; j < scores.length; j++) {
                 if (scores[j] > scores[i]) {
-
-                    // skor swap
-                    int tempScore = scores[i];
-                    scores[i] = scores[j];
-                    scores[j] = tempScore;
-
-                    // id swap
-                    String tempID = articleIDs[i];
-                    articleIDs[i] = articleIDs[j];
-                    articleIDs[j] = tempID;
+                    int t = scores[i]; scores[i] = scores[j]; scores[j] = t;
+                    String ts = ids[i]; ids[i] = ids[j]; ids[j] = ts;
                 }
             }
         }
 
-        // 6) İlk 5 makaleyi yazdır
         System.out.println("\n--- TOP 5 RESULTS FOR WORD: " + word + " ---\n");
 
-        int limit = Math.min(5, articleIDs.length);
+        int limit = Math.min(5, ids.length);
 
         for (int i = 0; i < limit; i++) {
 
-            Article a = articleMap.get(articleIDs[i]);
+            Article a = articleMap.get(ids[i]);
 
             if (a != null) {
                 System.out.println((i + 1) + ". Result (Score = " + scores[i] + ")");
@@ -313,6 +262,61 @@ public class Reader {
             }
         }
     }
+    private void searchTextSilent(String word) {
+        if (stopWords.get(word) != null) return;
+
+        HashTable<Integer> inner = indexMap.get(word);
+        if (inner == null) return;
+
+        String[] ids = inner.getAllKeys();
+        for (String id : ids) {
+            inner.get(id); // sadece erişim testi
+        }
+    }
+
+
+    public double benchmarkSearchAverage(String searchFilePath) {
+        long totalTime = 0;
+        int count = 0;
+
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(searchFilePath)))) {
+            String word;
+            while ((word = br.readLine()) != null) {
+
+                word = word.trim().toLowerCase();
+                if (word.isEmpty()) continue;
+
+                long start = System.nanoTime();
+                searchTextSilent(word);     // normal searchText ama ekrana yazdırmıyor
+                long end = System.nanoTime();
+
+                totalTime += (end - start);
+                count++;
+            }
+        }
+        catch (Exception e) {
+            System.out.println("Benchmark search error: " + e.getMessage());
+        }
+
+        if (count == 0) return 0;
+        return totalTime / (double) count;   // ns
+    }
+
+    public long getTotalInnerCollisions() {
+        long sum = 0;
+
+        String[] keys = indexMap.getAllKeys();
+        if (keys == null) return 0;
+
+        for (String w : keys) {
+            HashTable<Integer> inner = indexMap.get(w);
+            if (inner != null) {
+                sum += inner.getCollisionCount();
+            }
+        }
+        return sum;
+    }
+
 
 
 }

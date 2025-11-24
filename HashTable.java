@@ -2,21 +2,13 @@ public class HashTable<T> {
 
     private int TABLE_SIZE = 5003;
     private int size = 0;
-    private final double loadFactor = 0.5;
+    private double loadFactor;
+    private long collisionCount = 0;
+    private boolean usePAF = true;
+
 
     private HashEntry<T>[] table;
     private boolean useDoubleHashing = false;
-
-    @SuppressWarnings("unchecked")
-    public HashTable() {
-        table = new HashEntry[TABLE_SIZE];
-    }
-
-    private void checkLoadFactor() {
-        if ((double) size / TABLE_SIZE >= loadFactor) {
-            rehash();
-        }
-    }
 
     private boolean isPrime(int n) {
         if (n <= 1) return false;
@@ -32,6 +24,30 @@ public class HashTable<T> {
         while (!isPrime(n)) n++;
         return n;
     }
+
+    @SuppressWarnings("unchecked")
+    public HashTable(double loadFactor,int initialCapacity) {
+        this.loadFactor = loadFactor;
+        this.TABLE_SIZE = nextPrime(initialCapacity);
+        table = (HashEntry<T>[]) new HashEntry<?>[TABLE_SIZE];
+    }
+    // Eski constructor'lar - default değerlerle
+    @SuppressWarnings("unchecked")
+    public HashTable() {
+        this(0.5, 5003);  // default: 0.5 load factor, 5003 size
+    }
+
+    public HashTable(int size) {
+        this(0.5, size);  // default: 0.5 load factor
+    }
+
+    private void checkLoadFactor() {
+        if ((double) size / TABLE_SIZE >= loadFactor) {
+            rehash();
+        }
+    }
+
+
 
     @SuppressWarnings("unchecked")
     private void rehash() {
@@ -51,7 +67,7 @@ public class HashTable<T> {
 
     // SSF
     public int hashFunctionSSF(String key) {
-        key = key.toLowerCase();
+        //key = key.toLowerCase();
         int sum = 0;
         for (int i = 0; i < key.length(); i++) {
             sum += key.charAt(i);
@@ -80,6 +96,9 @@ public class HashTable<T> {
         while (true) {
             if (table[index] == null || table[index].getKey().equals(key))
                 return index;
+
+            collisionCount++;
+
             index = (index + 1) % TABLE_SIZE;
         }
     }
@@ -99,6 +118,9 @@ public class HashTable<T> {
         while (true) {
             if (table[index] == null || table[index].getKey().equals(key))
                 return index;
+
+            collisionCount++;
+
             index = (index + step) % TABLE_SIZE;
         }
     }
@@ -107,7 +129,7 @@ public class HashTable<T> {
     public void put(String key, T value) {
         checkLoadFactor();
 
-        int hash = hashFunctionPAF(key);
+        int hash = usePAF ? hashFunctionPAF(key) : hashFunctionSSF(key);
 
         int index = useDoubleHashing ? findIndexDH(key, hash) : findIndexLP(key, hash);
 
@@ -121,7 +143,8 @@ public class HashTable<T> {
 
     // GET
     public T get(String key) {
-        int hash = hashFunctionPAF(key);
+        int hash = usePAF ? hashFunctionPAF(key) : hashFunctionSSF(key);
+
         int index = hash;
 
         if (useDoubleHashing) {
@@ -142,7 +165,30 @@ public class HashTable<T> {
         return null;
     }
 
+    public String[] getAllKeys() {
+        String[] keys = new String[size];
+        int idx = 0;
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            if (table[i] != null) {
+                keys[idx++] = table[i].getKey();
+            }
+        }
+        return keys;
+    }
+
+    public void setUsePAF(boolean flag){this.usePAF = flag;}
+
     public void setDoubleHashing(boolean flag) {
         this.useDoubleHashing = flag;
     }
+
+    public long getCollisionCount() {
+        return collisionCount;
+    }
+    public void resetCollisionCount() {
+        collisionCount = 0;
+    }
+
+
 }
