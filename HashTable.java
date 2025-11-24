@@ -66,12 +66,24 @@ public class HashTable<T> {
     }
 
     // SSF
-    public int hashFunctionSSF(String key) {
+    /*public int hashFunctionSSF(String key) {
         //key = key.toLowerCase();
         int sum = 0;
         for (int i = 0; i < key.length(); i++) {
             sum += key.charAt(i);
         }
+        return Math.abs(sum % TABLE_SIZE);
+    }*/
+
+    public int hashFunctionSSF(String key) {
+        int sum = 0;
+        int weight = 1;
+
+        for (int i = 0; i < key.length(); i++) {
+            sum += key.charAt(i) * weight;
+            weight = (weight * 31) % TABLE_SIZE;  // ağırlık artışı
+        }
+
         return Math.abs(sum % TABLE_SIZE);
     }
 

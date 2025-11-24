@@ -148,7 +148,7 @@ public class Reader {
                 double seconds = (now - startTime) / 1000.0;
 
                 // Aynı satıra YAZ (satır silme efekti)
-                System.out.print("\rLoading CSV... " + percent + "%   (" + String.format("%.2f", seconds) + " s)");
+                //System.out.print("\rLoading CSV... " + percent + "%   (" + String.format("%.2f", seconds) + " s)");
 
                 // --- ARTICLE İŞLEME ---
                 String[] parts = line.split(",(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
@@ -195,7 +195,7 @@ public class Reader {
         HashTable<Integer> inner = indexMap.get(word);
 
         if (inner == null) {
-            inner = new HashTable<>(251);
+            inner = new HashTable<>(503); //23
             indexMap.put(word, inner);
         }
 

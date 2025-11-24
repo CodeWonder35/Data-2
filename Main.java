@@ -87,6 +87,7 @@ public class Main {
     }
 
     private static void printHeader() {
+        System.out.println();
         System.out.println("Load Factor | Hash Function | Collision Handling | Collision Count | Indexing Time(s) | Avg Search Time(ns)");
         System.out.println("----------- | ------------- | ------------------ | --------------- | ---------------- | ------------------");
     }
