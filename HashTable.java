@@ -1,4 +1,4 @@
-public class HashTable<T> {
+public class HashTable<T> implements HashTableInterface<T>{
 
     private int TABLE_SIZE = 5003;
     private int size = 0;
@@ -43,14 +43,14 @@ public class HashTable<T> {
 
     private void checkLoadFactor() {
         if ((double) size / TABLE_SIZE >= loadFactor) {
-            rehash();
+            resize();
         }
     }
 
 
 
     @SuppressWarnings("unchecked")
-    private void rehash() {
+    public void resize() {
         int oldSize = TABLE_SIZE;
         TABLE_SIZE = nextPrime(TABLE_SIZE * 2);
 
@@ -188,6 +188,13 @@ public class HashTable<T> {
     }
     public void resetCollisionCount() {
         collisionCount = 0;
+    }
+
+    public boolean isEmpty(){
+        return size==0;
+    }
+    public int size(){
+        return size;
     }
 
 
